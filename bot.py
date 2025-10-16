@@ -113,7 +113,6 @@ async def help_bot(ctx):
 @bot.command()
 async def cohort(ctx):
     """Vérifie le statut de cohorte"""
-    # POUR L'INSTANT - message fixe, après on intégrera Google Sheets
     embed = discord.Embed(
         title="👥 STATUT DE COHORTE",
         color=0x9932cc,
@@ -123,6 +122,52 @@ async def cohort(ctx):
     embed.add_field(name="⏱️ Délai", value="**24-48 heures**", inline=True)
     embed.add_field(name="📧 Contact", value="Un email vous parviendra pour confirmation", inline=False)
     await ctx.send(embed=embed)
+
+# --- SYSTÈME DE VÉRIFICATION COHORTE ---
+@bot.command()
+async def verifier(ctx, email: str):
+    """Vérifie si un trader est accepté dans une cohorte"""
+    
+    # LISTE TEST - Simule Google Sheets
+    traders_acceptes = {
+        "trader1@lotus.com": "Cohorte 1",
+        "trader2@lotus.com": "Cohorte 1", 
+        "trader3@lotus.com": "Cohorte 2",
+        "test@lotus.com": "Cohorte 1"
+    }
+    
+    if email in traders_acceptes:
+        cohorte = traders_acceptes[email]
+        
+        # Donner le rôle de la cohorte
+        role_cohorte = discord.utils.get(ctx.guild.roles, name=cohorte)
+        if role_cohorte:
+            await ctx.author.add_roles(role_cohorte)
+        
+        # Donner accès au salon privé
+        salon_prive = discord.utils.get(ctx.guild.channels, name="cohorte-privée")
+        if salon_prive:
+            await salon_prive.set_permissions(ctx.author, read_messages=True, send_messages=True)
+        
+        embed = discord.Embed(
+            title="✅ TRADER ACCEPTÉ",
+            color=0x00ff00,
+            description=f"**Email:** {email}"
+        )
+        embed.add_field(name="👥 Cohorte", value=cohorte, inline=True)
+        embed.add_field(name="🔐 Accès", value="Salon privé activé", inline=True)
+        embed.add_field(name="🎯 Statut", value="ACTIF", inline=True)
+        await ctx.send(embed=embed)
+        
+    else:
+        embed = discord.Embed(
+            title="⏳ EN ATTENTE",
+            color=0xff9900,
+            description=f"**Email:** {email}"
+        )
+        embed.add_field(name="📊 Statut", value="Liste d'attente", inline=True)
+        embed.add_field(name="📧 Contact", value="Vous serez notifié par email", inline=True)
+        await ctx.send(embed=embed)
 
 # --- LANCEMENT ---
 bot.run(TOKEN)
