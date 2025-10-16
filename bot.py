@@ -2,81 +2,127 @@ import discord
 from discord.ext import commands
 import os
 
-# --- CONFIG ---
-TOKEN = os.getenv('DISCORD_TOKEN') 
-PUBLIC_CHANNEL_NAME = "général"  # Ton salon général existant
-PRIVATE_CHANNEL_NAME = "candidats-prives"  # Ton salon privé existant
+TOKEN = os.getenv('DISCORD_TOKEN')
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix='!', intents=intents)
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
+# --- CONFIGURATION ---
+COHORT_ROLES = {
+    "active": "Trader Actif",
+    "waiting": "En Attente", 
+    "alumni": "Alumni"
+}
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+CHANNELS = {
+    "public": "général",
+    "private": "cohorte-privée"
+}
 
-async def add_to_private_channel(member):
-    """Ajoute la personne au salon privé existant"""
-    try:
-        # Trouver ton salon privé existant
-        channel = discord.utils.get(member.guild.channels, name=PRIVATE_CHANNEL_NAME)
-        
-        if channel:
-            # Donner l'accès au membre
-            await channel.set_permissions(member, read_messages=True, send_messages=True)
-            print(f"✅ {member} ajouté au salon {PRIVATE_CHANNEL_NAME}")
-            
-            # Message de bienvenue dans le salon privé
-            welcome_msg = (
-                f"🎉 **Bienvenue {member.mention} chez Lotus Capital !**\n\n"
-                f"**Félicitations pour ta décision de devenir trader !** 🚀\n\n"
-                f"📋 **Prochaines étapes :**\n"
-                f"• Tu recevras tes identifiants de compte démo sous 24h\n"
-                f"• Consulte les règles de trading épinglées\n"
-                f"• Pose tes questions ici librement\n\n"
-                f"L'équipe Lotus Capital te souhaite bonne chance ! 📈"
-            )
-            await channel.send(welcome_msg)
-            
-        else:
-            print(f"❌ Salon privé '{PRIVATE_CHANNEL_NAME}' non trouvé")
-            
-    except Exception as e:
-        print(f"❌ Erreur: {e}")
-
-@bot.event
-async def on_message(message):
-    # Ignorer les messages du bot
-    if message.author == bot.user:
-        return
-
-    # Vérifier si le message est dans le salon GÉNÉRAL
-    if message.channel.name == PUBLIC_CHANNEL_NAME:
-        # Si le message contient "new trader"
-        if "new trader" in message.content.lower():
-            print(f"👤 Nouveau trader détecté: {message.author}")
-            
-            # Ajouter au salon privé
-            await add_to_private_channel(message.author)
-            
-            # Répondre dans le général
-            await message.channel.send(
-                f"✅ **Excellent choix {message.author.mention} !** 🚀\n"
-                f"Je t'ai ajouté automatiquement au salon privé des traders.\n"
-                f"Tu y recevras toutes les informations importantes !"
-            )
-    
-    # Important pour les commandes
-    await bot.process_commands(message)
-
+# --- SYSTÈME D'ACCUEIL ---
 @bot.event
 async def on_ready():
-    print(f"✅ Bot connecté: {bot.user}")
-    print(f"🎯 Surveillance du salon: #{PUBLIC_CHANNEL_NAME}")
-    print("🤖 En attente de 'new trader'...")
+    print(f'✅ Bot Lotus Capital connecté: {bot.user}')
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="les traders 🌟"))
+
+@bot.event
+async def on_member_join(member):
+    """Accueil automatique des nouveaux membres"""
+    print(f"👤 Nouveau trader: {member}")
+    
+    # Message de bienvenue en MP
+    try:
+        await member.send(
+            "🎉 **BIENVENUE CHEZ LOTUS CAPITAL !**\n\n"
+            "Nous sommes ravis de vous accueillir dans notre communauté de traders.\n\n"
+            "**Prochaines étapes:**\n"
+            "• Vérification de votre inscription en cours\n"
+            "• Attribution de votre cohorte sous 24h\n"
+            "• Accès à l'espace privé des traders\n\n"
+            "**Commandes utiles:**\n"
+            "`!drawdown` - Règles de risque\n"
+            "`!assessment` - Phases d'évaluation\n"
+            "`!platform` - Plateformes de trading\n"
+            "`!help` - Aide complète\n\n"
+            "Bonne chance pour votre parcours ! 📈"
+        )
+    except:
+        print(f"❌ Impossible d'envoyer MP à {member}")
+    
+    # Attribution rôle "En Attente"
+    waiting_role = discord.utils.get(member.guild.roles, name=COHORT_ROLES["waiting"])
+    if waiting_role:
+        await member.add_roles(waiting_role)
+        print(f"✅ Rôle '{waiting_role.name}' assigné à {member}")
+
+# --- COMMANDES FAQ ---
+@bot.command()
+async def drawdown(ctx):
+    """Règles de drawdown et risk management"""
+    embed = discord.Embed(
+        title="📉 RÈGLES DE DRAWDOWN",
+        color=0xff0000,
+        description="Paramètres de risk management pour tous les traders"
+    )
+    embed.add_field(name="🎯 Quotidien", value="**3% maximum**", inline=True)
+    embed.add_field(name="📊 Total", value="**6% maximum**", inline=True)
+    embed.add_field(name="⚡ Conséquence", value="Dépassement = Disqualification immédiate", inline=False)
+    embed.add_field(name="💡 Conseil", value="Tradez small pour garder le contrôle !", inline=False)
+    await ctx.send(embed=embed)
 
 @bot.command()
-async def test_bot(ctx):
-    """Teste si le bot fonctionne"""
-    await ctx.send("✅ Bot opérationnel ! Écrivez 'new trader' dans le général.")
+async def assessment(ctx):
+    """Phases du programme d'assessment"""
+    embed = discord.Embed(
+        title="📊 PHASES D'ASSESSMENT",
+        color=0x00ff00,
+        description="Progression vers le compte funded"
+    )
+    embed.add_field(name="1. ÉVALUATION", value="**Target: +8%**\nDurée: 30 jours", inline=True)
+    embed.add_field(name="2. CONSISTANCE", value="**Target: +5%**\nDurée: 60 jours", inline=True)
+    embed.add_field(name="3. FUNDED", value="**Split: 80/20**\nCompte réel", inline=True)
+    embed.add_field(name="📋 Détails", value="[Lien vers le guide complet]", inline=False)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def platform(ctx):
+    """Plateformes de trading supportées"""
+    embed = discord.Embed(
+        title="💻 PLATEFORMES DE TRADING",
+        color=0x0099ff,
+        description="Plateformes officiellement supportées"
+    )
+    embed.add_field(name="🖥️ MT5", value="**Recommandée**\nDémo + Compte réel", inline=True)
+    embed.add_field(name="📱 cTrader", value="**Alternative**\nInterface moderne", inline=True)
+    embed.add_field(name="🔧 Support", value="Aide à la configuration disponible", inline=False)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def help_bot(ctx):
+    """Affiche toutes les commandes disponibles"""
+    embed = discord.Embed(
+        title="🆘 AIDE - COMMANDES DISPONIBLES",
+        color=0xff9900
+    )
+    embed.add_field(name="📉 Risk Management", value="`!drawdown` - Règles de drawdown", inline=False)
+    embed.add_field(name="📊 Assessment", value="`!assessment` - Phases du programme", inline=False)
+    embed.add_field(name="💻 Platforms", value="`!platform` - Plateformes supportées", inline=False)
+    embed.add_field(name="👥 Cohorte", value="`!cohort` - Statut de votre cohorte", inline=False)
+    embed.add_field(name="ℹ️ Aide", value="`!help` - Ce message", inline=False)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def cohort(ctx):
+    """Vérifie le statut de cohorte"""
+    # POUR L'INSTANT - message fixe, après on intégrera Google Sheets
+    embed = discord.Embed(
+        title="👥 STATUT DE COHORTE",
+        color=0x9932cc,
+        description="Vérification en cours..."
+    )
+    embed.add_field(name="📊 Votre statut", value="**En traitement**", inline=True)
+    embed.add_field(name="⏱️ Délai", value="**24-48 heures**", inline=True)
+    embed.add_field(name="📧 Contact", value="Un email vous parviendra pour confirmation", inline=False)
+    await ctx.send(embed=embed)
 
 # --- LANCEMENT ---
 bot.run(TOKEN)
